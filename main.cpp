@@ -4,6 +4,8 @@
 #include <climits>
 #include <algorithm>
 #include <set>
+#include <bitset>
+#include <iomanip>
 #include <math.h>
 #include <queue>
 #include <cstdio>
@@ -53,6 +55,25 @@ void limparManobras(vector<bool> &vec) {
 //     auxMatrix[index][capacidade] = resultFinal;
 //     return resultFinal;
 // }
+
+void imprimirMatriz(vector<vector<long long int>> &matriz, int LINHAS, int COLUNAS) {
+    // Imprime os índices das colunas em binário
+    cout << setw(5) << " ";
+    for (int j = 0; j < COLUNAS; ++j) {
+        cout << setw(9) << bitset<4>(j); // 4 bits para representar números até 3 (binário: 11)
+    }
+    cout << endl;
+
+    for (int i = 0; i < LINHAS; ++i) {
+        // Imprime o índice da linha em binário
+        cout << bitset<4>(i) << " ";
+
+        for (int j = 0; j < COLUNAS; ++j) {
+            cout << setw(9) << matriz[i][j];
+        }
+        cout << endl;
+    }
+}
 
 void knapSack(Secao &secao, vector<Manobra>& manobras, vector<bool>&manobrasCheck) {
     //Bottom up -> começo achando a solução otima para da menor capacidade até chegar na maior capacidade
@@ -148,20 +169,22 @@ int main() {
                 int bitHdei = (i >> h) & 1;
 
                 if(bitHdej == 1 && bitHdei == 1) {
-                    sum += manobras[j].pontuacaoBase / 2;
+                    sum += manobras[h].pontuacaoBase / 2;
                 } else if (bitHdej == 1 && bitHdei == 0) {
-                    sum += manobras[j].pontuacaoBase;
+                    sum += manobras[h].pontuacaoBase;
                 }
             }
             manobrasPreCalc[i][j] = sum;
         }
     }
 
-    for(long long int i = 0; i < numSecoes; i++) {
-        limparManobras(manobrasCheck);
-        knapSack(pista.secoes[i], manobras, manobrasCheck);
-        vector<int> selectedManobras = getManobrasSelecionadas(manobrasCheck);
-    }
+    imprimirMatriz(manobrasPreCalc, pow(2, numManobras), pow(2, numManobras));
+
+    // for(long long int i = 0; i < numSecoes; i++) {
+    //     limparManobras(manobrasCheck);
+    //     knapSack(pista.secoes[i], manobras, manobrasCheck);
+    //     vector<int> selectedManobras = getManobrasSelecionadas(manobrasCheck);
+    // }
 
     cout << "----------------------------------------" << endl;
 
