@@ -75,10 +75,17 @@ void imprimirMatriz(vector<vector<long long int>> &matriz, int LINHAS, int COLUN
     }
 }
 
-void knapSack(Secao &secao, vector<Manobra>& manobras, vector<bool>&manobrasCheck) {
+void knapSack(Secao &secao, vector<Manobra>& manobras, vector<bool>&manobrasCheck, vector<vector<long long int>>&preCalc) {
     //Bottom up -> começo achando a solução otima para da menor capacidade até chegar na maior capacidade
     long long int numTempoTravessia = secao.tempoDeTravessia;
     const long int numManobras = manobras.size();
+
+    int binAnterior = 0;
+    for(int j = 0; j < manobrasCheck.size(); j++) {
+        if(manobrasCheck[j]) {
+            binAnterior += j + 1;
+        }
+    }
 
     vector<vector<long long int>> K(numManobras + 1, vector<long long int>(numTempoTravessia + 1));
 
@@ -87,25 +94,50 @@ void knapSack(Secao &secao, vector<Manobra>& manobras, vector<bool>&manobrasChec
             if (i == 0 || w == 0) {
                 K[i][w] = 0;
             } else if (manobras[i - 1].duracao <= w) {
-                K[i][w] = max(manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
+                if(manobrasCheck[i - 1]){
+                    int result = max(manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
+                    if(result == manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao]){
+                        K[i][w] = max(manobras[i - 1].pontuacaoBase/2 + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
+                    } else {
+                        K[i][w] = max(manobras[i - 1].pontuacaoBase/2 + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
+                    }
+                } else {
+                    K[i][w] = max(manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
+                }
             } else {
                 K[i][w] = K[i - 1][w];
             }
         }
     }
 
+
     long long int res = K[numManobras][numTempoTravessia];
+    
     long long int auxValue = res;
     
     long long int tempoUsado = numTempoTravessia;
     vector<long long int> manobrasSelecionadas;
 
     for (long long int i = numManobras; i > 0 && auxValue > 0; i--) {
+        cout << "auxValue: " << auxValue << " k[i-1][tempoUsado]"<<  K[i - 1][tempoUsado] << endl; 
         if (auxValue != K[i - 1][tempoUsado]) {
             manobrasSelecionadas.push_back(i - 1);
-            auxValue -= manobras[i - 1].pontuacaoBase;
+            if(manobrasCheck[i - 1]){
+                auxValue -= manobras[i - 1].pontuacaoBase/2;
+            } else {
+                auxValue -= manobras[i - 1].pontuacaoBase;
+            }
             tempoUsado -= manobras[i - 1].duracao;
+            
         }
+    }
+
+    limparManobras(manobrasCheck);
+
+    int binAtual = 0;
+    for(int j = 0; j < manobrasSelecionadas.size(); j++) {
+        binAtual += manobrasSelecionadas[j] + 1;
+        manobrasCheck[manobrasSelecionadas[j]] = true;
     }
 
     cout << "Índices das manobras selecionadas: ";
@@ -115,6 +147,12 @@ void knapSack(Secao &secao, vector<Manobra>& manobras, vector<bool>&manobrasChec
     cout << endl;
 
     cout << "Valor máximo obtido como bonus: " << res * secao.bonificacao * manobrasSelecionadas.size() << endl;
+
+    cout << "Config secao anterior: " << binAnterior << endl;
+
+    cout << endl;
+
+    cout << "Config secao atual: " << binAtual << endl;
 
     cout << endl;
 }
@@ -180,11 +218,9 @@ int main() {
 
     imprimirMatriz(manobrasPreCalc, pow(2, numManobras), pow(2, numManobras));
 
-    // for(long long int i = 0; i < numSecoes; i++) {
-    //     limparManobras(manobrasCheck);
-    //     knapSack(pista.secoes[i], manobras, manobrasCheck);
-    //     vector<int> selectedManobras = getManobrasSelecionadas(manobrasCheck);
-    // }
+    for(long long int i = 0; i < numSecoes; i++) {
+        knapSack(pista.secoes[i], manobras, manobrasCheck, manobrasPreCalc);
+    }
 
     cout << "----------------------------------------" << endl;
 
