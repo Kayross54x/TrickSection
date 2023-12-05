@@ -9,6 +9,7 @@
 #include <math.h>
 #include <queue>
 #include <cstdio>
+#include <limits.h>
 
 using namespace std;
 
@@ -26,145 +27,64 @@ struct Manobra {
     long long int pontuacaoBase; //pode ser negativa
 };
 
-vector<int> getManobrasSelecionadas(vector<bool> &manobras) {
-    vector<int> result;
-    for(int i = 0; i < manobras.size(); i++) {
-        if(manobras[i]) result.push_back(i);
-    }
-    return result;
-}
+pair<long long int, vector<int>> knapSack(
+    int currentSection, 
+    int manobraAtual, 
+    vector<Secao> &secoes, 
+    vector<Manobra>& manobras, 
+    vector<vector<long long int>>&preCalc, 
+    vector<vector<pair<long long int, vector<int>>>>&matrizDP
+) {
+    if(currentSection >= secoes.size()) return make_pair(0, vector<int>());
 
-void limparManobras(vector<bool> &vec) {
-    for (long long int i = 0; i < vec.size(); i++) {
-        vec[i] = false;
-    }
-}
-
-// int knapSackRecursivo(long long int index, long long int capacidade, vector<Manobra>& manobras, vector<vector<long long int>> & auxMatrix) {
-//     int resultFinal;
-//     if(auxMatrix[index][capacidade] != 0) return auxMatrix[index][capacidade];
-//     if(capacidade == 0 || index == 0) {
-//         resultFinal = 0;
-//     } else if (manobras[index].duracao > capacidade) {
-//         resultFinal = knapSackRecursivo(index - 1, capacidade, manobras, auxMatrix);
-//     } else {
-//         int result1 = knapSackRecursivo(index - 1, capacidade, manobras, auxMatrix);
-//         int result2 = manobras[index].pontuacaoBase + knapSackRecursivo(index - 1, capacidade - manobras[index].duracao, manobras, auxMatrix);
-//         resultFinal = max(result1, result2);
-//     }
-//     auxMatrix[index][capacidade] = resultFinal;
-//     return resultFinal;
-// }
-
-void imprimirMatriz(vector<vector<long long int>> &matriz, int LINHAS, int COLUNAS) {
-    // Imprime os índices das colunas em binário
-    cout << setw(5) << " ";
-    for (int j = 0; j < COLUNAS; ++j) {
-        cout << setw(9) << bitset<4>(j); // 4 bits para representar números até 3 (binário: 11)
-    }
-    cout << endl;
-
-    for (int i = 0; i < LINHAS; ++i) {
-        // Imprime o índice da linha em binário
-        cout << bitset<4>(i) << " ";
-
-        for (int j = 0; j < COLUNAS; ++j) {
-            cout << setw(9) << matriz[i][j];
-        }
-        cout << endl;
-    }
-}
-
-void knapSack(Secao &secao, vector<Manobra>& manobras, vector<bool>&manobrasCheck, vector<vector<long long int>>&preCalc) {
-    //Bottom up -> começo achando a solução otima para da menor capacidade até chegar na maior capacidade
-    long long int numTempoTravessia = secao.tempoDeTravessia;
-    const long int numManobras = manobras.size();
-
-    int binAnterior = 0;
-    for(int j = 0; j < manobrasCheck.size(); j++) {
-        if(manobrasCheck[j]) {
-            binAnterior += j + 1;
-        }
+    if(matrizDP[currentSection][manobraAtual].first != -LLONG_MAX) {
+        return matrizDP[currentSection][manobraAtual];
     }
 
-    vector<vector<long long int>> K(numManobras + 1, vector<long long int>(numTempoTravessia + 1));
+    long long int MaxPoints = 0;
+    vector<int> manobrasUsadas;
 
-    for (long long int i = 0; i <= numManobras; i++) {
-        for (long long int w = 0; w <= numTempoTravessia; w++) {
-            if (i == 0 || w == 0) {
-                K[i][w] = 0;
-            } else if (manobras[i - 1].duracao <= w) {
-                if(manobrasCheck[i - 1]){
-                    int result = max(manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
-                    if(result == manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao]){
-                        K[i][w] = max(manobras[i - 1].pontuacaoBase/2 + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
-                    } else {
-                        K[i][w] = max(manobras[i - 1].pontuacaoBase/2 + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
-                    }
-                } else {
-                    K[i][w] = max(manobras[i - 1].pontuacaoBase + K[i - 1][w - manobras[i - 1].duracao], K[i - 1][w]);
-                }
-            } else {
-                K[i][w] = K[i - 1][w];
+    for(int proximaManobra = 0; proximaManobra < pow(2, manobras.size()); proximaManobra++) {
+        int j = 0;
+        int bitH = 0;
+        long long int duracao = 0;
+
+        while(j < manobras.size()) {
+            bitH = (proximaManobra >> j) & 1;
+            if(bitH) {
+                duracao = duracao + manobras[j].duracao;
             }
+            j++;
+        }
+
+        if(duracao > secoes[currentSection].tempoDeTravessia) {
+            continue;
+        }
+
+        long long int pontosAcumulados = preCalc[manobraAtual][proximaManobra] * secoes[currentSection].bonificacao * __builtin_popcountll(proximaManobra);
+
+        pair<long long int, vector<int>> result = knapSack(currentSection + 1, proximaManobra, secoes, manobras, preCalc, matrizDP);
+
+        if(pontosAcumulados + result.first > MaxPoints) {
+            MaxPoints = pontosAcumulados + result.first;
+            manobrasUsadas = {proximaManobra};
+            manobrasUsadas.insert(manobrasUsadas.end(), result.second.begin(), result.second.end());
         }
     }
 
-
-    long long int res = K[numManobras][numTempoTravessia];
-    
-    long long int auxValue = res;
-    
-    long long int tempoUsado = numTempoTravessia;
-    vector<long long int> manobrasSelecionadas;
-
-    for (long long int i = numManobras; i > 0 && auxValue > 0; i--) {
-        cout << "auxValue: " << auxValue << " k[i-1][tempoUsado]"<<  K[i - 1][tempoUsado] << endl; 
-        if (auxValue != K[i - 1][tempoUsado]) {
-            manobrasSelecionadas.push_back(i - 1);
-            if(manobrasCheck[i - 1]){
-                auxValue -= manobras[i - 1].pontuacaoBase/2;
-            } else {
-                auxValue -= manobras[i - 1].pontuacaoBase;
-            }
-            tempoUsado -= manobras[i - 1].duracao;
-            
-        }
-    }
-
-    limparManobras(manobrasCheck);
-
-    int binAtual = 0;
-    for(int j = 0; j < manobrasSelecionadas.size(); j++) {
-        binAtual += manobrasSelecionadas[j] + 1;
-        manobrasCheck[manobrasSelecionadas[j]] = true;
-    }
-
-    cout << "Índices das manobras selecionadas: ";
-    for (long long int i = manobrasSelecionadas.size() - 1; i >= 0; i--) {
-        cout << manobrasSelecionadas[i] << " ";
-    }
-    cout << endl;
-
-    cout << "Valor máximo obtido como bonus: " << res * secao.bonificacao * manobrasSelecionadas.size() << endl;
-
-    cout << "Config secao anterior: " << binAnterior << endl;
-
-    cout << endl;
-
-    cout << "Config secao atual: " << binAtual << endl;
-
-    cout << endl;
+    matrizDP[currentSection][manobraAtual].first = MaxPoints;
+    matrizDP[currentSection][manobraAtual].second = manobrasUsadas;
+    return matrizDP[currentSection][manobraAtual];
 }
 
 int main() {
     Pista pista;
     vector<Manobra> manobras;
-    long long int numSecoes, numManobras;
+    int numSecoes, numManobras;
 
-    scanf("%lld %lld", &numSecoes, &numManobras);
+    scanf("%d %d", &numSecoes, &numManobras);
 
-    for (long long int i = 0; i < numSecoes; i++) {
+    for (int i = 0; i < numSecoes; i++) {
         long long int bonificacao, tempoTravessia;
         
         scanf("%lld %lld", &bonificacao, &tempoTravessia);
@@ -176,7 +96,7 @@ int main() {
         pista.secoes.push_back(newSecao);
     }
 
-    for (long long int i = 0; i < numManobras; i++) {
+    for (int i = 0; i < numManobras; i++) {
         long long int pontuacaoBase, duracao;
         
         scanf("%lld %lld", &pontuacaoBase, &duracao);
@@ -188,15 +108,6 @@ int main() {
         manobras.push_back(newManobra);
     }
 
-    vector<bool> manobrasCheck(numManobras, false);
-
-    //Criar um vetor do tamanho de numManobras de booleano
-    //Assim que eu resolver uma mochila eu marco nesse vetor quais foram as manobras usadas na ultima seção e passo esse vetor para a próxima seção,
-    //Ai la dentro do knapSack eu trato pra ver se a manobra que eu to escolhendo agora ja foi usada na ultima seção
-    //Mano, depois de rodar pra cada seção eu tenho os resultados
-
-    //matriz 1024 (2^10), a linha é a config que eu fiz antes, ex pra 3 manobras (010) e a coluna é a config que eu to fazendo agora, ex (110)
-
     vector<vector<long long int>> manobrasPreCalc(pow(2, numManobras), vector<long long int>(pow(2, numManobras)));
 
     for(int i = 0; i < pow(2, numManobras); i++) {
@@ -207,7 +118,7 @@ int main() {
                 int bitHdei = (i >> h) & 1;
 
                 if(bitHdej == 1 && bitHdei == 1) {
-                    sum += manobras[h].pontuacaoBase / 2;
+                    sum += floor(manobras[h].pontuacaoBase / 2);
                 } else if (bitHdej == 1 && bitHdei == 0) {
                     sum += manobras[h].pontuacaoBase;
                 }
@@ -216,24 +127,21 @@ int main() {
         }
     }
 
-    imprimirMatriz(manobrasPreCalc, pow(2, numManobras), pow(2, numManobras));
+    vector<vector<pair<long long int, vector<int>>>> MatrizDP(numSecoes, vector<pair<long long int, vector<int>>>(pow(2, numManobras), {-LLONG_MAX, {}}));
 
-    for(long long int i = 0; i < numSecoes; i++) {
-        knapSack(pista.secoes[i], manobras, manobrasCheck, manobrasPreCalc);
+    pair<long long int, vector<int>> resultado = knapSack(0, 0, pista.secoes, manobras, manobrasPreCalc, MatrizDP);
+
+    cout << resultado.first << endl;
+    for(int i = 0; i < resultado.second.size(); i++) {
+        int bitManobra = resultado.second[i];
+        int num1 = __builtin_popcountll(bitManobra);
+        cout << num1;
+        for(int h = 0; h < numManobras; h++) {
+            int bitAtualManobra = (bitManobra >> h) & 1;
+            if(bitAtualManobra) {
+                cout << " " << h + 1;
+            }
+        }
+        cout << endl;
     }
-
-    cout << "----------------------------------------" << endl;
-
-    // for(long long int i = 0; i < numSecoes; i++) {
-        
-    //     vector<vector<long long int>> K(numManobras + 1, vector<long long int>(pista.secoes[i].tempoDeTravessia + 1));
-    //     int result = knapSackRecursivo(manobras.size() - 1, pista.secoes[i].tempoDeTravessia, manobras, K);
-    //     cout << "Valor máximo obtido: " << result * pista.secoes[i].bonificacao << endl;
-    //     // if(counter % 2 == 0) {
-    //     //     knapSack(pista.secoes[i], manobras, manobrasCheck);
-    //     // }
-    // }
 }
-
-//cada mochila é uma seção, cada mochila eu tenho que retornar os pontos que eu faço na seção e quais manobras eu usei,
-//peso do item é o tempo de exec da manobra e o lucro do item é os pontos da manobra
