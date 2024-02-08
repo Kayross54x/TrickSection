@@ -27,62 +27,52 @@ struct Manobra {
     long long int pontuacaoBase; //pode ser negativa
 };
 
-pair<long long int, vector<int>> knapSack(
-    int currentSection, 
-    int manobraAtual, 
-    vector<Secao> &secoes, 
-    vector<Manobra>& manobras, 
-    vector<vector<long long int>>&preCalc, 
-    vector<vector<pair<long long int, vector<int>>>>&matrizDP
-) {
-    if(currentSection >= secoes.size()) return make_pair(0, vector<int>());
+vector<Manobra> manobras;
+vector<vector<long long int>> manobrasPreCalc;
+vector<int> duracaoPreCalc;
+vector<vector<pair<long long int, int>>> MatrizDP;
+Pista pista;
+int numSecoes, numManobras;
+int potencia;
 
-    if(matrizDP[currentSection][manobraAtual].first != -LLONG_MAX) {
-        return matrizDP[currentSection][manobraAtual];
+pair<long long int, int> knapSack(int currentSection, int manobraAtual) {
+    if(currentSection >= pista.secoes.size()) return make_pair(0, 0);
+
+    if(MatrizDP[currentSection][manobraAtual].first != -LLONG_MAX) {
+        return MatrizDP[currentSection][manobraAtual];
     }
 
     long long int MaxPoints = 0;
-    vector<int> manobrasUsadas;
+    int manobrasUsadas;
 
-    for(int proximaManobra = 0; proximaManobra < pow(2, manobras.size()); proximaManobra++) {
+    for(int proximaManobra = 0; proximaManobra < potencia; proximaManobra++) {
         int j = 0;
         int bitH = 0;
-        long long int duracao = 0;
+        long long int duracao = duracaoPreCalc[proximaManobra];
 
-        while(j < manobras.size()) {
-            bitH = (proximaManobra >> j) & 1;
-            if(bitH) {
-                duracao = duracao + manobras[j].duracao;
-            }
-            j++;
-        }
-
-        if(duracao > secoes[currentSection].tempoDeTravessia) {
+        if(duracao > pista.secoes[currentSection].tempoDeTravessia) {
             continue;
         }
 
-        long long int pontosAcumulados = preCalc[manobraAtual][proximaManobra] * secoes[currentSection].bonificacao * __builtin_popcountll(proximaManobra);
+        long long int pontosAcumulados = manobrasPreCalc[manobraAtual][proximaManobra] * pista.secoes[currentSection].bonificacao * __builtin_popcountll(proximaManobra);
 
-        pair<long long int, vector<int>> result = knapSack(currentSection + 1, proximaManobra, secoes, manobras, preCalc, matrizDP);
+        pair<long long int, int> result = knapSack(currentSection + 1, proximaManobra);
 
         if(pontosAcumulados + result.first > MaxPoints) {
             MaxPoints = pontosAcumulados + result.first;
-            manobrasUsadas = {proximaManobra};
-            manobrasUsadas.insert(manobrasUsadas.end(), result.second.begin(), result.second.end());
+            manobrasUsadas = proximaManobra;
         }
     }
 
-    matrizDP[currentSection][manobraAtual].first = MaxPoints;
-    matrizDP[currentSection][manobraAtual].second = manobrasUsadas;
-    return matrizDP[currentSection][manobraAtual];
+    MatrizDP[currentSection][manobraAtual].first = MaxPoints;
+    MatrizDP[currentSection][manobraAtual].second = manobrasUsadas;
+    return MatrizDP[currentSection][manobraAtual];
 }
 
 int main() {
-    Pista pista;
-    vector<Manobra> manobras;
-    int numSecoes, numManobras;
-
     scanf("%d %d", &numSecoes, &numManobras);
+
+    potencia = pow(2, numManobras);
 
     for (int i = 0; i < numSecoes; i++) {
         long long int bonificacao, tempoTravessia;
@@ -108,10 +98,23 @@ int main() {
         manobras.push_back(newManobra);
     }
 
-    vector<vector<long long int>> manobrasPreCalc(pow(2, numManobras), vector<long long int>(pow(2, numManobras)));
+    manobrasPreCalc.resize(potencia, vector<long long int>(potencia));
+    duracaoPreCalc.resize(potencia);
 
-    for(int i = 0; i < pow(2, numManobras); i++) {
-        for(int j = 0; j < pow(2, numManobras); j++){
+    for(int i = 0; i < potencia; i++) {
+        int sum = 0;
+
+        for(int j = 0; j < numManobras; j++) {
+            int bitH = (i >> j) & 1;
+            if(bitH == 1) {
+                sum += manobras[j].duracao;
+            }
+        }
+        duracaoPreCalc[i] = sum;
+    }
+
+    for(int i = 0; i < potencia; i++) {
+        for(int j = 0; j < potencia; j++){
             int sum = 0;
             for(int h = 0; h < numManobras; h++) {
                 int bitHdej = (j >> h) & 1;
@@ -127,21 +130,29 @@ int main() {
         }
     }
 
-    vector<vector<pair<long long int, vector<int>>>> MatrizDP(numSecoes, vector<pair<long long int, vector<int>>>(pow(2, numManobras), {-LLONG_MAX, {}}));
+    MatrizDP.resize(numSecoes, vector<pair<long long int, int>>(potencia, {-LLONG_MAX, 0}));
 
-    pair<long long int, vector<int>> resultado = knapSack(0, 0, pista.secoes, manobras, manobrasPreCalc, MatrizDP);
+    pair<long long int, int> resultado = knapSack(0, 0);
 
     cout << resultado.first << endl;
-    for(int i = 0; i < resultado.second.size(); i++) {
-        int bitManobra = resultado.second[i];
-        int num1 = __builtin_popcountll(bitManobra);
-        cout << num1;
-        for(int h = 0; h < numManobras; h++) {
-            int bitAtualManobra = (bitManobra >> h) & 1;
-            if(bitAtualManobra) {
-                cout << " " << h + 1;
+    int cur = 0;
+
+    for(int j = 0; j < numSecoes; j++) {
+        int aux = MatrizDP[j][cur].second;
+        vector<int> auxVector;
+
+        for(int x = 0; x < numManobras; x++) {
+            if(aux & (1 << x)) {
+                auxVector.push_back(x + 1);
             }
         }
+
+        cout << auxVector.size() << " ";
+        for(int i = 0; i < auxVector.size(); i++) {
+            cout << auxVector[i] << " ";
+        }
         cout << endl;
+
+        cur = aux;
     }
 }
